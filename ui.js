@@ -26,7 +26,12 @@ var ui = {
 		get: document.getElementById('get')
 	},
 	autoSelect: document.getElementById('auto-select'),
-    armPosition: document.getElementById('arm-position')
+    armPosition: document.getElementById('arm-position'),
+    theme: {
+        select: document.getElementById('theme-select'),
+        link: document.getElementById('theme-link')
+    }
+
 };
 
 // Sets function to be called on NetworkTables connect. Commented out because it's usually not necessary.
@@ -53,7 +58,7 @@ function onValueChanged(key, value, isNew) {
 
 	// This switch statement chooses which UI element to update when a NetworkTables variable changes.
 	switch (key) {
-		case '/SmartDashboard/drive/navx/yaw': // Gyro rotation
+		case '/SmartDashboard/heading': // Gyro rotation
 			ui.gyro.val = value;
 			ui.gyro.visualVal = Math.floor(ui.gyro.val - ui.gyro.offset);
 			if (ui.gyro.visualVal < 0) { // Corrects for negative values
@@ -92,17 +97,24 @@ function onValueChanged(key, value, isNew) {
 		case '/SmartDashboard/time_running':
 			// When this NetworkTables variable is true, the timer will start.
 			// You shouldn't need to touch this code, but it's documented anyway in case you do.
-			var s = 135;
+			//var s = 135;
+			var countdown;
 			if (value) {
 				// Make sure timer is reset to black when it starts
-				ui.timer.style.color = 'black';
+				//ui.timer.style.color = 'black';
+				//Start timer code
+				var start = Date.now()
+				var diff = 0
+
 				// Function below adjusts time left every second
-				var countdown = setInterval(function() {
-					s--; // Subtract one second
+				countdown = setInterval(function() {
+					var s = (135 - NetworkTables.getValue("/SmartDashboard/time_remaining", 135)) | 0;
 					// Minutes (m) is equal to the total seconds divided by sixty with the decimal removed.
-					var m = Math.floor(s / 60);
+					var m = (s / 60) | 0;
 					// Create seconds number that will actually be displayed after minutes are subtracted
-					var visualS = (s % 60);
+					var visualS = (s % 60) | 0;
+
+					console.log(s);
 
 					// Add leading zero if seconds is one digit long, for proper time formatting.
 					visualS = visualS < 10 ? '0' + visualS : visualS;
@@ -119,13 +131,16 @@ function onValueChanged(key, value, isNew) {
 						ui.timer.style.color = '#FF3030';
 					}
 					ui.timer.innerHTML = m + ':' + visualS;
+
+					NetworkTables.setValue("/SmartDashboard/time_temp", s)
 				}, 1000);
 			} else {
 				s = 135;
+				clearInterval(countdown);
 			}
 			NetworkTables.setValue(key, false);
 			break;
-		case '/SmartDashboard/autonomous/options': // Load list of prewritten autonomous modes
+		case '/SmartDashboard/Autonomous Mode/options': // Load list of prewritten autonomous modes
 			// Clear previous list
 			while (ui.autoSelect.firstChild) {
 				ui.autoSelect.removeChild(ui.autoSelect.firstChild);
@@ -137,11 +152,16 @@ function onValueChanged(key, value, isNew) {
 				ui.autoSelect.appendChild(option);
 			}
 			// Set value to the already-selected mode. If there is none, nothing will happen.
-			ui.autoSelect.value = NetworkTables.getValue('/SmartDashboard/currentlySelectedMode');
+			ui.autoSelect.value = NetworkTables.getValue('/SmartDashboard/Autonomous Mode/selected');
 			break;
-		case '/SmartDashboard/autonomous/selected':
+		case '/SmartDashboard/Autonomous Mode/selected':
 			ui.autoSelect.value = value;
 			break;
+		case '/SmartDashboard/theme':
+            ui.theme.select.value = value;
+            ui.theme.link.href = 'css/' + value + '.css';
+            break;
+
 	}
 
 	// The following code manages tuning section of the interface.
@@ -244,10 +264,14 @@ ui.tuning.get.onclick = function() {
 
 // Update NetworkTables when autonomous selector is changed
 ui.autoSelect.onchange = function() {
-	NetworkTables.setValue('/SmartDashboard/autonomous/selected', this.value);
+	NetworkTables.setValue('/SmartDashboard/Autonomous Mode/selected', this.value);
 };
 
 // Get value of arm height slider when it's adjusted
 ui.armPosition.oninput = function() {
 	NetworkTables.setValue('/SmartDashboard/arm/encoder', parseInt(this.value));
+};
+
+ui.theme.select.onchange = function() {
+    NetworkTables.setValue('/SmartDashboard/theme', this.value);
 };
